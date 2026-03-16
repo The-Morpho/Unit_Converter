@@ -1,0 +1,753 @@
+================================================================================
+ UNIT CONVERTER BACKEND - ALL SOURCE CODES
+ Generated: 2026-03-16
+================================================================================
+
+
+================================================================================
+ CONTROLLER
+================================================================================
+
+--------------------------------------------------------------------------------
+ FILE: controller/ApiExceptionHandler.java
+--------------------------------------------------------------------------------
+(empty file)
+
+--------------------------------------------------------------------------------
+ FILE: controller/ConversionController.java
+--------------------------------------------------------------------------------
+package controller;
+
+import dto.ConversionRequest;
+import dto.ConversionResponse;
+import service.ConversionService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/conv")
+@CrossOrigin(origins="*")
+public class ConversionController {
+
+    private final ConversionService conversionService;
+
+    public ConversionController(ConversionService conversionService) {
+        this.conversionService = conversionService;
+    }
+    @GetMapping("/info")
+    public ResponseEntity<String> getConversionInfo() {
+        return ResponseEntity.ok("API de conversion est opérationnelle");
+    }
+    @PostMapping("/preview")
+    public ResponseEntity<ConversionResponse> previewConversion(@Valid @RequestBody ConversionRequest request) {
+        ConversionResponse response = conversionService.previewConversion(request);
+        return ResponseEntity.ok(response);
+    }
+
+}
+
+
+================================================================================
+ DTO
+================================================================================
+
+--------------------------------------------------------------------------------
+ FILE: dto/AuthResponse.java
+--------------------------------------------------------------------------------
+package dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class AuthResponse {
+
+    private Long userId;
+    private String name;
+    private String email;
+    private String role;
+    private String token;
+}
+
+--------------------------------------------------------------------------------
+ FILE: dto/ConversionRequest.java
+--------------------------------------------------------------------------------
+package dto;
+
+import enums.UnitCategory;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class ConversionRequest {
+
+    @NotNull(message = "La catégorie est obligatoire")
+    private UnitCategory category;
+
+    @NotBlank(message = "L'unité source est obligatoire")
+    private String fromUnit;
+
+    @NotBlank(message = "L'unité cible est obligatoire")
+    private String toUnit;
+
+    @NotNull(message = "La valeur est obligatoire")
+    private Double value;
+}
+
+--------------------------------------------------------------------------------
+ FILE: dto/ConversionResponse.java
+--------------------------------------------------------------------------------
+package dto;
+
+import enums.UnitCategory;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class ConversionResponse {
+
+    private UnitCategory category;
+    private String fromUnit;
+    private String toUnit;
+    private Double inputValue;
+    private Double result;
+}
+
+--------------------------------------------------------------------------------
+ FILE: dto/HistoryResponse.java
+--------------------------------------------------------------------------------
+package dto;
+
+import enums.UnitCategory;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class HistoryResponse {
+
+    private Long id;
+    private UnitCategory category;
+    private String fromUnit;
+    private String toUnit;
+    private Double inputValue;
+    private Double outputValue;
+    private LocalDateTime createdAt;
+}
+
+--------------------------------------------------------------------------------
+ FILE: dto/LoginRequest.java
+--------------------------------------------------------------------------------
+package dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
+public class LoginRequest {
+
+    @Email(message = "Email invalide")
+    @NotBlank(message = "L'email est obligatoire")
+    private String email;
+
+    @NotBlank(message = "Le mot de passe est obligatoire")
+    private String password;
+}
+
+--------------------------------------------------------------------------------
+ FILE: dto/RegistrationRequest.java
+--------------------------------------------------------------------------------
+package dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
+public class RegistrationRequest {
+
+    @NotBlank(message = "Le nom est obligatoire")
+    private String name;
+
+    @Email(message = "Email invalide")
+    @NotBlank(message = "L'email est obligatoire")
+    private String email;
+
+    @NotBlank(message = "Le mot de passe est obligatoire")
+    @Size(min = 6, message = "Le mot de passe doit contenir au moins 6 caractères")
+    private String password;
+}
+
+--------------------------------------------------------------------------------
+ FILE: dto/UserResponse.java
+--------------------------------------------------------------------------------
+package dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class UserResponse {
+
+    private Long id;
+    private String name;
+    private String email;
+    private String role;
+    private Boolean enabled;
+}
+
+
+================================================================================
+ ENUMS
+================================================================================
+
+--------------------------------------------------------------------------------
+ FILE: enums/DistanceUnit.java
+--------------------------------------------------------------------------------
+package enums;
+
+public enum DistanceUnit {
+    M,
+    KM,
+    MI
+}
+
+--------------------------------------------------------------------------------
+ FILE: enums/Role.java
+--------------------------------------------------------------------------------
+package enums;
+
+public enum Role {
+    ROLE_USER,
+    ROLE_ADMIN
+}
+
+--------------------------------------------------------------------------------
+ FILE: enums/TemperatureUnit.java
+--------------------------------------------------------------------------------
+package enums;
+
+public enum TemperatureUnit {
+    C,
+    F,
+    K
+}
+
+--------------------------------------------------------------------------------
+ FILE: enums/UnitCategory.java
+--------------------------------------------------------------------------------
+package enums;
+
+public enum UnitCategory {
+    WEIGHT,
+    DISTANCE,
+    TEMPERATURE
+}
+
+--------------------------------------------------------------------------------
+ FILE: enums/WeightUnit.java
+--------------------------------------------------------------------------------
+package enums;
+
+public enum WeightUnit {
+    KG,
+    G,
+    LB
+}
+
+
+================================================================================
+ MODEL
+================================================================================
+
+--------------------------------------------------------------------------------
+ FILE: model/ConversionHistory.java
+--------------------------------------------------------------------------------
+package model;
+
+import enums.UnitCategory;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "conversion_history")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ConversionHistory {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private UnitCategory category;
+
+    @Column(name = "from_unit", nullable = false, length = 30)
+    private String fromUnit;
+
+    @Column(name = "to_unit", nullable = false, length = 30)
+    private String toUnit;
+
+    @Column(name = "input_value", nullable = false)
+    private Double inputValue;
+
+    @Column(name = "output_value", nullable = false)
+    private Double outputValue;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
+}
+
+--------------------------------------------------------------------------------
+ FILE: model/User.java
+--------------------------------------------------------------------------------
+package model;
+
+import enums.Role;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(nullable = false, unique = true, length = 150)
+    private String email;
+
+    @Column(nullable = false, length = 255)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private Role role;
+
+    @Column(nullable = false)
+    private Boolean enabled = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    @Builder.Default
+    private List<ConversionHistory> histories = new ArrayList<>();
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+
+        if (this.enabled == null) {
+            this.enabled = true;
+        }
+    }
+}
+
+
+================================================================================
+ REPOSITORY
+================================================================================
+
+--------------------------------------------------------------------------------
+ FILE: repository/ConversionHistoryRepository.java
+--------------------------------------------------------------------------------
+package repository;
+
+import model.ConversionHistory;
+import model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface ConversionHistoryRepository extends JpaRepository<ConversionHistory, Long> {
+
+    List<ConversionHistory> findByUserOrderByCreatedAtDesc(User user);
+
+    List<ConversionHistory> findAllByOrderByCreatedAtDesc();
+}
+
+--------------------------------------------------------------------------------
+ FILE: repository/UserRepository.java
+--------------------------------------------------------------------------------
+package repository;
+
+import model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    Optional<User> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+}
+
+
+================================================================================
+ SERVICE
+================================================================================
+
+--------------------------------------------------------------------------------
+ FILE: service/ConversionService.java
+--------------------------------------------------------------------------------
+package service;
+
+import dto.ConversionRequest;
+import dto.ConversionResponse;
+import enums.DistanceUnit;
+import enums.TemperatureUnit;
+import enums.UnitCategory;
+import enums.WeightUnit;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ConversionService {
+
+    public ConversionResponse previewConversion(ConversionRequest request) {
+        double result;
+
+        switch (request.getCategory()) {
+            case WEIGHT:
+                result = convertWeight(request.getFromUnit(), request.getToUnit(), request.getValue());
+                break;
+
+            case DISTANCE:
+                result = convertDistance(request.getFromUnit(), request.getToUnit(), request.getValue());
+                break;
+
+            case TEMPERATURE:
+                result = convertTemperature(request.getFromUnit(), request.getToUnit(), request.getValue());
+                break;
+
+            default:
+                throw new IllegalArgumentException("Catégorie non supportée");
+        }
+
+        return ConversionResponse.builder()
+                .category(request.getCategory())
+                .fromUnit(request.getFromUnit())
+                .toUnit(request.getToUnit())
+                .inputValue(request.getValue())
+                .result(result)
+                .build();
+    }
+
+    private double convertWeight(String fromUnit, String toUnit, double value) {
+        WeightUnit from = parseWeightUnit(fromUnit);
+        WeightUnit to = parseWeightUnit(toUnit);
+
+        if (from == to) {
+            return value;
+        }
+
+        double valueInGrams;
+
+        switch (from) {
+            case KG:
+                valueInGrams = value * 1000;
+                break;
+            case G:
+                valueInGrams = value;
+                break;
+            case LB:
+                valueInGrams = value * 453.59237;
+                break;
+            default:
+                throw new IllegalArgumentException("Unité de poids source invalide");
+        }
+
+        switch (to) {
+            case KG:
+                return valueInGrams / 1000;
+            case G:
+                return valueInGrams;
+            case LB:
+                return valueInGrams / 453.59237;
+            default:
+                throw new IllegalArgumentException("Unité de poids cible invalide");
+        }
+    }
+
+    private double convertDistance(String fromUnit, String toUnit, double value) {
+        DistanceUnit from = parseDistanceUnit(fromUnit);
+        DistanceUnit to = parseDistanceUnit(toUnit);
+
+        if (from == to) {
+            return value;
+        }
+
+        double valueInMeters;
+
+        switch (from) {
+            case KM:
+                valueInMeters = value * 1000;
+                break;
+            case M:
+                valueInMeters = value;
+                break;
+            case MI:
+                valueInMeters = value * 1609.344;
+                break;
+            default:
+                throw new IllegalArgumentException("Unité de distance source invalide");
+        }
+
+        switch (to) {
+            case KM:
+                return valueInMeters / 1000;
+            case M:
+                return valueInMeters;
+            case MI:
+                return valueInMeters / 1609.344;
+            default:
+                throw new IllegalArgumentException("Unité de distance cible invalide");
+        }
+    }
+
+    private double convertTemperature(String fromUnit, String toUnit, double value) {
+        TemperatureUnit from = parseTemperatureUnit(fromUnit);
+        TemperatureUnit to = parseTemperatureUnit(toUnit);
+
+        if (from == to) {
+            return value;
+        }
+
+        double valueInCelsius;
+
+        switch (from) {
+            case C:
+                valueInCelsius = value;
+                break;
+            case F:
+                valueInCelsius = (value - 32) * 5 / 9;
+                break;
+            case K:
+                valueInCelsius = value - 273.15;
+                break;
+            default:
+                throw new IllegalArgumentException("Unité de température source invalide");
+        }
+
+        switch (to) {
+            case C:
+                return valueInCelsius;
+            case F:
+                return (valueInCelsius * 9 / 5) + 32;
+            case K:
+                return valueInCelsius + 273.15;
+            default:
+                throw new IllegalArgumentException("Unité de température cible invalide");
+        }
+    }
+
+    private WeightUnit parseWeightUnit(String unit) {
+        try {
+            return WeightUnit.valueOf(unit.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Unité de poids invalide : " + unit);
+        }
+    }
+
+    private DistanceUnit parseDistanceUnit(String unit) {
+        try {
+            return DistanceUnit.valueOf(unit.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Unité de distance invalide : " + unit);
+        }
+    }
+
+    private TemperatureUnit parseTemperatureUnit(String unit) {
+        try {
+            return TemperatureUnit.valueOf(unit.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Unité de température invalide : " + unit);
+        }
+    }
+}
+
+
+================================================================================
+ POM.XML
+================================================================================
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.3</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>fullstack</groupId>
+    <artifactId>Unit_Converter_Backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Unit_Converter_Backend</name>
+    <description>Unit_Converter_Backend</description>
+    <url/>
+    <licenses>
+        <license/>
+    </licenses>
+    <developers>
+        <developer/>
+    </developers>
+    <scm>
+        <connection/>
+        <developerConnection/>
+        <tag/>
+        <url/>
+    </scm>
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+================================================================================
+ APPLICATION.PROPERTIES
+================================================================================
+
+spring.application.name=Unit_Converter_Backend
+
+spring.datasource.url=jdbc:mysql://localhost:3306/unit_converter_db?useSSL=false&serverTimezone=UTC
+spring.datasource.username=root
+spring.datasource.password=
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
+
+server.port=8080
+
+
+================================================================================
+ END OF FILE
+================================================================================
+
