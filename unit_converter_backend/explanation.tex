@@ -1,0 +1,281 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\geometry{a4paper, margin=2cm}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{Analyse Complète du Backend Unit Converter}
+\author{Votre Assistant IA}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section{Introduction et Structure Globale}
+
+Ce document détaille l'architecture backend de votre projet \texttt{Unit Converter}, construit avec \textbf{Java Spring Boot}. Ce projet suit une architecture en couches (Layered Architecture) classique et robuste, idéale pour les applications d'entreprise et les projets maintenables.
+
+\subsection{Objectif du Backend}
+
+Le backend sert de "cerveau" à votre application :
+\begin{itemize}
+    \item Il expose une \textbf{API REST} (Representational State Transfer) que le frontend consomme.
+    \item Il gère la \textbf{logique métier} complexe (les conversions d'unités).
+    \item Il assure la \textbf{sécurité} (authentification, tokens JWT, rôle des utilisateurs).
+    \item Il persiste les données dans une base de données \textbf{MySQL} via \textbf{Hibernate/JPA}.
+\end{itemize}
+
+\subsection{Structure des Packages}
+
+Votre code source principal se trouve dans \texttt{src/main/java/fullstack/unit\_converter\_backend}. Voici l'organisation des packages et leur rôle :
+
+\begin{description}
+    \item[controller] Contient les classes qui reçoivent les requêtes HTTP (les points d'entrée de l'API). C'est la couche de présentation.
+    \item[service] Contient la logique métier pure (les calculs, les règles de gestion). C'est le cœur de l'application.
+    \item[repository] Contient les interfaces pour interagir avec la base de données. C'est la couche d'accès aux données (DAO - Data Access Object).
+    \item[model] (ou entity) Contient les classes Java qui représentent les tables de votre base de données.
+    \item[dto] (Data Transfer Object) Contient des objets simples utilisés pour transporter des données entre le client (frontend) et le serveur, sans exposer directement les modèles de base de données.
+    \item[security] Contient toute la configuration liée à la sécurité (JWT, filtres, configuration Spring Security).
+    \item[enums] Contient les énumérations (constantes typées) pour les unités, les rôles, etc.
+\end{description}
+
+\section{Point d'Entrée de l'Application}
+
+\subsection{UnitConverterBackendApplication.java}
+
+C'est le fichier qui lance tout le processus.
+
+\begin{lstlisting}[language=Java]
+package fullstack.unit_converter_backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class UnitConverterBackendApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UnitConverterBackendApplication.class, args);
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Explication Détailée}
+
+\begin{itemize}
+    \item \textbf{@SpringBootApplication} : C'est une "méta-annotation" qui combine trois annotations importantes :
+    \begin{enumerate}
+        \item \texttt{@Configuration} : Indique que cette classe peut définir des beans (objets gérés par Spring).
+        \item \texttt{@EnableAutoConfiguration} : Dit à Spring Boot de configurer automatiquement l'application en fonction des dépendances présentes (ex: s'il voit \texttt{spring-boot-starter-web}, il lance un serveur Tomcat; s'il voit \texttt{mysql-connector}, il configure la connexion BDD).
+        \item \texttt{@ComponentScan} : Dit à Spring de scanner le package actuel (\texttt{fullstack.unit\_converter\_backend}) et tous ses sous-packages pour trouver vos \texttt{@Controller}, \texttt{@Service}, \texttt{@Repository}, etc. \textbf{C'est pourquoi la position de ce fichier à la racine du code source est cruciale.}
+    \end{enumerate}
+
+    \item \textbf{public static void main(String[] args)} : Le point d'entrée standard de toute application Java.
+
+    \item \textbf{SpringApplication.run(...)} : Cette méthode statique démarre le conteneur Spring (ApplicationContext). Elle lance le serveur web embarqué (Tomcat) sur le port défini (8080 par défaut).
+\end{itemize}
+
+\section{Architecture et Flux d'une Requête}
+
+Pour comprendre comment le backend fonctionne, suivons le cheminement d'une requête HTTP typique (ex: \texttt{POST /api/conv/preview}).
+
+\begin{enumerate}
+    \item \textbf{Client (Frontend)} : Envoie une requête HTTP avec des données JSON.
+    \item \textbf{Security Filter Chain} : La requête est interceptée par Spring Security (\texttt{JwtAuthFilter}). On vérifie si l'utilisateur est authentifié (token valide).
+    \item \textbf{Controller} (\texttt{ConversionController}) : Reçoit la requête, valide les données (ex: champs non vides), et appelle le service.
+    \item \textbf{Service} (\texttt{ConversionService}) : Exécute la logique métier (le calcul de conversion).
+    \item \textbf{Repository} (si besoin) : Si on devait sauvegarder l'historique, le service appellerait le repository.
+    \item \textbf{Base de Données} : Les données sont lues ou écrites.
+    \item \textbf{Retour} : Le résultat remonte la chaîne : BDD $\rightarrow$ Repository $\rightarrow$ Service $\rightarrow$ Controller.
+    \item \textbf{Controller} : Renvoie un objet \texttt{ResponseEntity} contenant la réponse (DTO) et le code HTTP (ex: 200 OK).
+    \item \textbf{Jackson} : Spring transforme automatiquement l'objet Java en JSON pour le client.
+\end{enumerate}
+
+\section{Analyse des Contrôleurs (Controllers)}
+
+Les contrôleurs sont les "réceptionnistes" de votre application.
+
+\subsection{Annotations Communes}
+\begin{itemize}
+    \item \textbf{@RestController} : Indique que cette classe gère des requêtes REST et que chaque méthode renvoie directement la réponse (souvent du JSON) dans le corps de la réponse HTTP (pas de vue HTML).
+    \item \textbf{@RequestMapping("/api/...")} : Définit le préfixe d'URL commun à toutes les méthodes de la classe.
+    \item \textbf{@GetMapping, @PostMapping} : Mappe une méthode Java à une méthode HTTP spécifique (GET pour lire, POST pour créer/agir).
+    \item \textbf{@RequestBody} : Dit à Spring de prendre le JSON envoyé par le client et de le transformer en objet Java (désérialisation).
+    \item \textbf{@Valid} : Demande à Spring de vérifier les contraintes de validation (ex: \texttt{@NotBlank}) définies dans le DTO avant d'exécuter la méthode.
+\end{itemize}
+
+\subsection{AuthController.java}
+Ce contrôleur gère l'inscription et la connexion.
+
+\begin{itemize}
+    \item \textbf{Endpoints} :
+    \begin{itemize}
+        \item \texttt{POST /api/auth/register} : Crée un nouvel utilisateur. Appelle \texttt{userService.register()}.
+        \item \texttt{POST /api/auth/login} : Authentifie un utilisateur. Utilise \texttt{authenticationManager.authenticate()} pour vérifier l'email/mot de passe, puis génère un token JWT.
+    \end{itemize}
+\end{itemize}
+
+\subsection{ConversionController.java}
+Gère les conversions d'unités.
+
+\begin{itemize}
+    \item \textbf{Endpoints} :
+    \begin{itemize}
+        \item \texttt{GET /api/conv/info} : Simple test de disponibilité.
+        \item \texttt{POST /api/conv/preview} : Calcule une conversion sans la sauvegarder (ou la sauvegarde, selon votre logique actuelle).
+        \\ \textbf{Logique importante} : Elle reçoit un \texttt{ConversionRequest}, appelle le service de conversion, récupère l'utilisateur connecté via \texttt{Authentication}, et sauvegarde l'historique via \texttt{HistoryService}.
+        \item \texttt{GET /api/conv/history} : Récupère l'historique de l'utilisateur connecté.
+    \end{itemize}
+\end{itemize}
+
+\subsection{UserController.java}
+Permet de gérer et consulter les utilisateurs (souvent pour un tableau de bord administrateur).
+
+\begin{itemize}
+    \item \textbf{Endpoints} :
+    \begin{itemize}
+        \item \texttt{GET /api/users} : Renvoie la liste de tous les utilisateurs (via \texttt{UserResponse}).
+        \item \texttt{GET /api/users/{id}/history} : Renvoie l'historique d'un utilisateur specifique.
+        \item \textbf{Note} : Ces routes sont généralement protégées et accessibles uniquement aux administrateurs (rôle ADMIN), configuré dans \texttt{SecurityConfig} (\texttt{requestMatchers("/api/users/**").hasRole("ADMIN")}).
+    \end{itemize}
+\end{itemize}
+
+\section{Analyse des Services}
+
+Les services contiennent le "comment" de l'application.
+
+\subsection{UserService.java}
+Gère les utilisateurs et l'authentification.
+\begin{itemize}
+    \item Implémente \textbf{UserDetailsService} : C'est une interface standard de Spring Security. La méthode \texttt{loadUserByUsername} est cruciale : elle charge un utilisateur depuis la BDD pour que Spring Security puisse vérifier le mot de passe.
+    \item \textbf{register()} : Vérifie si l'email existe, chiffre le mot de passe (\texttt{passwordEncoder}), sauvegarde l'utilisateur, et génère un token JWT initial.
+    \item \textbf{Dépendances} : \texttt{UserRepository} (accès BDD), \texttt{PasswordEncoder} (sécurité), \texttt{JwtUtil} (tokens).
+\end{itemize}
+
+\subsection{ConversionService.java}
+Contient la logique pure de conversion.
+\begin{itemize}
+    \item Pas de dépendance vers la base de données ici, c'est du pur calcul.
+    \item Utilise des méthodes privées (\texttt{convertWeight}, \texttt{convertDistancce}...) pour organiser le code.
+    \item Lance des exceptions (\texttt{IllegalArgumentException}) si les unités sont invalides.
+\end{itemize}
+
+\subsection{HistoryService.java}
+Gère la persistance et la gestion des historiques de conversion.
+\begin{itemize}
+    \item \textbf{saveHistory} : Prend le résultat d'une conversion, crée un objet \texttt{ConversionHistory}, et le sauvegarde avec \texttt{repo.save()}.
+    \item \textbf{getUserHistory} : Récupère les conversions d'un utilisateur, en utilisant un repository avec une méthode qui trie par date (\texttt{OrderByCreatedAtDesc}).
+    \item \textbf{Transformation DTO} : La méthode privée \texttt{toDto()} assure la conversion entre l'entité BDD et le \texttt{HistoryResponse} renvoyé à l'API. C'est essentiel pour ne pas exposer l'entité brute.
+\end{itemize}
+
+\section{Modèles et Données (Layer Entity & Repository)}
+
+\subsection{Les Entités (Entities)}
+Ce sont les reflets Java de vos tables SQL.
+
+\textbf{User.java} :
+\begin{itemize}
+    \item \texttt{@Entity}, \texttt{@Table(name="users")} : Mappe la classe à la table `users`.
+    \item \texttt{@Id}, \texttt{@GeneratedValue} : Clé primaire auto-incrémentée.
+    \item \texttt{@OneToMany(mappedBy="user")} : Relation inverse. Un utilisateur a plusieurs historiques. \texttt{mappedBy} indique que la clé étrangère est dans l'autre table (`conversion_history`).
+\end{itemize}
+
+\textbf{ConversionHistory.java} :
+\begin{itemize}
+    \item \texttt{@ManyToOne} : Relation directe. Un historique appartient à un seul utilisateur.
+    \item \texttt{@JoinColumn(name="user\_id")} : Définit la colonne de clé étrangère dans la table `conversion\_history`.
+\end{itemize}
+
+\subsection{Les Repositories}
+Interfaces qui étendent \texttt{JpaRepository}.
+\begin{itemize}
+    \item Spring Data JPA génère automatiquement l'implémentation de ces interfaces au démarrage.
+    \item Vous n'avez pas besoin d'écrire de SQL pour des opérations simples (save, findById, delete).
+    \item \textbf{Méthodes dérivées} : \texttt{findByUserOrderByCreatedAtDesc(User user)}
+    \\ Spring comprend le nom de la méthode et génère une requête SQL du type :
+    \\ \texttt{SELECT * FROM conversion\_history WHERE user\_id = ? ORDER BY created\_at DESC}
+\end{itemize}
+
+\section{Sécurité (Spring Security & JWT)}
+
+Votre sécurité est "Stateless" (sans session serveur), basée sur des tokens JWT.
+
+\subsection{Le Flux d'Authentification}
+\begin{enumerate}
+    \item L'utilisateur envoie ses identifiants via \texttt{/api/auth/login}.
+    \item Si valide, le serveur renvoie un \textbf{Token JWT} (chaîne cryptée avec une clé secrète).
+    \item Pour les requêtes suivantes, le client doit envoyer ce token dans le header HTTP : \texttt{Authorization: Bearer <token>}.
+\end{enumerate}
+
+\subsection{JwtAuthFilter.java}
+Ce filtre s'exécute avant chaque requête (sauf celles publiques).
+\begin{itemize}
+    \item Il intercepte la requête.
+    \item Il regarde le header \texttt{Authorization}.
+    \item Il extrait le token et le valide via \texttt{JwtUtil}.
+    \item Si valide, il crée un objet \texttt{Authentication} et le place dans le \texttt{SecurityContext}. Ainsi, Spring sait qui est l'utilisateur pour le reste de la requête (permettant d'utiliser \texttt{Authentication authentication} dans vos contrôleurs).
+\end{itemize}
+
+\section{Configuration et Base de Données}
+
+\subsection{application.properties}
+\begin{lstlisting}
+spring.datasource.url=jdbc:mysql://localhost:3306/unit_converter_db...
+spring.jpa.hibernate.ddl-auto=update
+\end{lstlisting}
+\begin{itemize}
+    \item \textbf{ddl-auto=update} : Très utile en dev. Au démarrage, Hibernate regarde vos classes \texttt{@Entity} et met à jour automatiquement le schéma de la base de données (crée les tables, ajoute les colonnes manquantes) sans supprimer les données existantes.
+\end{itemize}
+
+\section{DTOs (Data Transfer Objects)}
+
+\subsection{Pourquoi des DTOs ?}
+Pourquoi ne pas utiliser directement l'entité \texttt{User} dans le contrôleur ?
+\begin{itemize}
+    \item \textbf{Sécurité} : L'entité \texttt{User} contient le mot de passe hashé. On ne veut jamais renvoyer ça au client. Le \texttt{UserResponse} ne contient que les infos publiques.
+    \item \textbf{Découplage} : La structure de votre base de données (Entity) peut changer sans casser l'API (DTO).
+    \item \textbf{Validation} : Les annotations de validation (\texttt{@NotBlank}, \texttt{@Email}) sont placées sur les DTOs d'entrée (\texttt{RegistrationRequest}) pour valider les données avant même qu'elles n'atteignent le service.
+\end{itemize}
+
+\section{Conclusion}
+
+Votre backend est bien structuré. Il sépare clairement les responsabilités, utilise les standards actuels (Spring Boot 3+, Spring Security avec JWT, JPA), et suit les bonnes pratiques de développement (DTOs, Services sans état, Injection de dépendances par constructeur).
+
+\end{document}
+
+
+
